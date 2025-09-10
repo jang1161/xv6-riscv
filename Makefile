@@ -144,6 +144,8 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_my_userapp\
+	$U/_test_printf\
+	$U/_test_ppid\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
