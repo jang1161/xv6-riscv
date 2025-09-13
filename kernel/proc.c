@@ -9,6 +9,9 @@
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
+struct proc *level_0 = proc;
+struct proc *level_1 = proc;
+struct proc *level_2 = proc;
 
 struct proc *initproc;
 
@@ -19,6 +22,10 @@ extern void forkret(void);
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
+
+enum schedtype sched_type = FCFS; // defaulf: FCFS
+int crtpid = 0;
+int called_yield = 0;
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -426,37 +433,99 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
     int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    if(sched_type == FCFS) {
+      int minpid = nextpid;
+      struct proc *selected = 0, *prev = 0;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          found = 1;
+          if(p->pid == crtpid) { // process has been excuted
+            if(called_yield) { // called yield, so search other processes (and keep lock)
+              prev = p;
+            } else { // resume
+              selected = p;
+              break;
+            }
+          }
+          else if(p->pid < minpid) { // higher priority
+            if(selected != 0) // release previous selected's lock
+              release(&selected->lock);
+            selected = p;
+            minpid = p->pid;
+          }
+          else { 
+            release(&p->lock); // lower priority, release lock
+          }
+        } else { // not runnable
+          release(&p->lock);
+        }
       }
-      release(&p->lock);
+
+      if(found == 0) {
+        asm volatile("wfi");
+      } else {
+        if(selected == 0) // only one process is RUNNABLE, which called yield 
+          selected = prev;
+        
+        // has lock
+        selected->state = RUNNING;
+        c->proc = selected;
+        swtch(&c->context, &selected->context);
+        c->proc = 0;
+        release(&selected->lock);
+
+        crtpid = selected->pid;
+        called_yield = 0;
+
+        if(prev && selected != prev) // prev not used
+          release(&prev->lock);
+      }
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+
+    else if(sched_type == MLFQ) {
+
     }
   }
+
+  // xv6 original
+  // for(;;){
+  //   // The most recent process to run may have had interrupts
+  //   // turned off; enable them to avoid a deadlock if all
+  //   // processes are waiting. Then turn them back off
+  //   // to avoid a possible race between an interrupt
+  //   // and wfi.
+  //   intr_on();
+  //   intr_off();
+
+  //   int found = 0;
+  //   for(p = proc; p < &proc[NPROC]; p++) {
+  //     acquire(&p->lock);
+  //     if(p->state == RUNNABLE) {
+  //       // Switch to chosen process.  It is the process's job
+  //       // to release its lock and then reacquire it
+  //       // before jumping back to us.
+  //       p->state = RUNNING;
+  //       c->proc = p;
+  //       swtch(&c->context, &p->context);
+
+  //       // Process is done running for now.
+  //       // It should have changed its p->state before coming back.
+  //       c->proc = 0;
+  //       found = 1;
+  //     }
+  //     release(&p->lock);
+  //   }
+  //   if(found == 0) {
+  //     // nothing to run; stop running on this core until an interrupt.
+  //     asm volatile("wfi");
+  //   }
+  // }
 }
 
 // Switch to scheduler.  Must hold only p->lock

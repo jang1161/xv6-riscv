@@ -105,3 +105,7 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };
+
+enum schedtype { FCFS, MLFQ };
+extern enum schedtype sched_type;
+extern int called_yield;

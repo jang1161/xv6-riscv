@@ -146,6 +146,7 @@ UPROGS=\
 	$U/_my_userapp\
 	$U/_test_printf\
 	$U/_test_ppid\
+	$U/_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
