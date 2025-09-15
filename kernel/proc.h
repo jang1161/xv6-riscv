@@ -111,6 +111,8 @@ struct proc {
   int priority;
 };
 
+extern struct proc proc[NPROC];
+
 enum schedtype { FCFS, MLFQ };
 extern enum schedtype sched_type;
-extern int called_yield;
+extern int crtpid, called_yield;

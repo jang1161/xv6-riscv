@@ -22,7 +22,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-enum schedtype sched_type = MLFQ; // defaulf: FCFS
+enum schedtype sched_type = FCFS; // defaulf: FCFS
 int crtpid = 0;
 int called_yield = 0;
 
@@ -686,6 +686,7 @@ sched(void)
 void
 yield(void)
 {
+  called_yield = 1;
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;

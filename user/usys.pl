@@ -45,3 +45,6 @@ entry("uptime");
 entry("myfunction");
 entry("getppid");
 entry("getlev");
+entry("setpriority");
+entry("mlfqmode");
+entry("fcfsmode");

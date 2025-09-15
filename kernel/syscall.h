@@ -20,6 +20,9 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_myfunction 22
-#define SYS_getppid    23
-#define SYS_getlev  24
+#define SYS_myfunction  22
+#define SYS_getppid     23
+#define SYS_getlev      24
+#define SYS_setpriority 25
+#define SYS_mlfqmode    26
+#define SYS_fcfsmode    27

@@ -11,6 +11,8 @@ struct pqueue
 	int rear;
 };
 
+extern struct pqueue mlfq[MLFQLV];
+
 void q_init(struct pqueue *q);
 int q_add(struct pqueue *q, struct proc *p); // success: 0, fail: -1
 struct proc *q_poll(struct pqueue *q); // success: *proc, fail: 0

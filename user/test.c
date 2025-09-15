@@ -37,31 +37,31 @@ int main(int argc, char *argv[])
 
   parent = getpid();
 
-  // printf("FCFS & MLFQ test start\n\n");
+  printf("FCFS & MLFQ test start\n\n");
 
-  // // [Test 1] FCFS test
-  // printf("[Test 1] FCFS Queue Execution Order\n");
-  // pid = fork_children();
+  // [Test 1] FCFS test
+  printf("[Test 1] FCFS Queue Execution Order\n");
+  pid = fork_children();
 
-  // if (pid != parent)
-  // {
-  //   while(fcfs_count[pid] < NUM_LOOP)
-  //   {
-  //     fcfs_count[pid]++;
-  //   }
+  if (pid != parent)
+  {
+    while(fcfs_count[pid] < NUM_LOOP)
+    {
+      fcfs_count[pid]++;
+    }
 
-  //   printf("Process %d executed %d times\n", pid, fcfs_count[pid]);
-  // }
-  // exit_children();
-  // printf("[Test 1] FCFS Test Finished\n\n");
+    printf("Process %d executed %d times\n", pid, fcfs_count[pid]);
+  }
+  exit_children();
+  printf("[Test 1] FCFS Test Finished\n\n");
 
-  // // Switch to FCFS mode - should not be changed
-  // if(fcfsmode() == 0) printf("successfully changed to FCFS mode!\n");
-  // else printf("nothing has been changed\n");
+  // Switch to FCFS mode - should not be changed
+  if(fcfsmode() == 0) printf("successfully changed to FCFS mode!\n");
+  else printf("nothing has been changed\n");
 
-  // // Switch to MLFQ mode
-  // if(mlfqmode() == 0) printf("successfully changed to MLFQ mode!\n");
-  // else printf("nothing has been changed\n");
+  // Switch to MLFQ mode
+  if(mlfqmode() == 0) printf("successfully changed to MLFQ mode!\n");
+  else printf("nothing has been changed\n");
 
   // [Test 2] MLFQ test
   printf("\n[Test 2] MLFQ Scheduling\n");
