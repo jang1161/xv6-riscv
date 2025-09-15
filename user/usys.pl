@@ -44,3 +44,4 @@ entry("pause");
 entry("uptime");
 entry("myfunction");
 entry("getppid");
+entry("getlev");

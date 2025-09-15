@@ -5,13 +5,12 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "proc_queue.h"
 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
-struct proc *level_0 = proc;
-struct proc *level_1 = proc;
-struct proc *level_2 = proc;
+struct pqueue mlfq[MLFQLV];
 
 struct proc *initproc;
 
@@ -23,7 +22,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-enum schedtype sched_type = FCFS; // defaulf: FCFS
+enum schedtype sched_type = MLFQ; // defaulf: FCFS
 int crtpid = 0;
 int called_yield = 0;
 
@@ -63,6 +62,10 @@ procinit(void)
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
   }
+
+  // init mlfq
+  for(int i = 0; i < MLFQLV; i++)
+    q_init(&mlfq[i]);
 }
 
 // Must be called with interrupts disabled,
@@ -152,6 +155,12 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  // for mlfq
+  p->level = 0;
+  p->remain_time = 1;
+  p->priority = 3;
+  q_add(&mlfq[0], p);
 
   return p;
 }
@@ -437,7 +446,9 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    if(sched_type == FCFS) {
+    extern uint ticks; // for mlfq priority boosting
+
+    if((int)sched_type == (int)FCFS) {
       int minpid = nextpid;
       struct proc *selected = 0, *prev = 0;
 
@@ -488,10 +499,124 @@ scheduler(void)
       }
     }
 
-    else if(sched_type == MLFQ) {
+    else if((int)sched_type == (int)MLFQ) {
+      int sz;
 
+      // priority boosting
+      if(ticks % 50  == 0) {
+        acquire(&mlfq[0].lock);
+        for(int i = 1; i < MLFQLV; i++) {
+          acquire(&mlfq[i].lock);
+          sz = mlfq[i].size;
+          for(int j = 0; j < sz; j++) {
+            q_add(&mlfq[0], q_poll(&mlfq[i]));
+          }
+          release(&mlfq[i].lock);
+        }
+
+        sz = mlfq[0].size;
+        for(int i = 0; i < sz; i++) {
+          struct proc * p = mlfq[0].elements[i];
+          acquire(&p->lock);
+          p->level = 0;
+          p->remain_time = 1;
+          release(&p->lock);
+        }
+
+        release(&mlfq[0].lock);
+      }
+
+      struct proc *selected = 0;
+
+      // search from lv0
+      for(int lv = 0; lv < MLFQLV; lv++) {
+        acquire(&mlfq[lv].lock);
+
+        if(lv < 2) {
+          sz = mlfq[lv].size;
+          for(int i = 0; i < sz; i++) {
+            p = q_poll(&mlfq[lv]);
+            // printf("[scheduler] in lv %d polled pid=%d, state=%d\n", lv, p->pid, p->state);
+            acquire(&p->lock);
+
+            if(p->state == RUNNABLE) {
+              found = 1;
+              selected = p;
+              break; // keep lock
+            } else {
+              q_add(&mlfq[lv], p);
+              release(&p->lock);
+            }
+          }
+        } 
+
+        else { // lv2
+          sz = mlfq[lv].size;
+          for(int i = 0; i < sz; i++) {
+            p = q_poll(&mlfq[lv]);
+            // printf("[scheduler] in lv %d polled pid=%d, state=%d\n", lv, p->pid, p->state);
+            acquire(&p->lock);
+            
+            if(p->state == RUNNABLE) {
+              if(!found) {
+                found = 1;
+                selected = p; // keep lock
+              } 
+              else if(p->priority > selected->priority) {
+                q_add(&mlfq[lv], selected); // change selected
+                release(&selected->lock);
+                selected = p;
+              } else {
+                q_add(&mlfq[lv], p);
+                release(&p->lock);
+              }
+            } 
+            else { // not runnable
+              q_add(&mlfq[lv], p);
+              release(&p->lock);
+            }
+          }
+        }
+
+        release(&mlfq[lv].lock);
+        if(found) break; // for found in lv0,1
+      }
+
+      if(found == 0) {
+        // printf("not found");
+        asm volatile("wfi");
+      } else {
+        // has lock
+        // printf("seledted: %d\n", selected->pid);
+        selected->state = RUNNING;
+        c->proc = selected;
+        swtch(&c->context, &selected->context);
+        c->proc = 0;
+        release(&selected->lock);
+
+        // check state after come back
+        acquire(&selected->lock);
+        if(selected->state == ZOMBIE) {
+          // terminated: do nothing
+        } else {
+          if(--selected->remain_time == 0) {
+            if(selected->level < 2) {
+              selected->level++;
+            } else { // already in lv2
+              selected->priority = selected->priority > 0 ? selected->priority - 1 : 0;
+            }
+            selected->remain_time = 2 * selected->level + 1;
+          }
+
+          acquire(&mlfq[selected->level].lock);
+          q_add(&mlfq[selected->level], selected);
+          release(&mlfq[selected->level].lock);
+        }
+        release(&selected->lock);
+      }
     }
   }
+
 
   // xv6 original
   // for(;;){
@@ -506,6 +631,8 @@ scheduler(void)
   //   int found = 0;
   //   for(p = proc; p < &proc[NPROC]; p++) {
   //     acquire(&p->lock);
+  //     // if(p->pid)
+  //     //   printf("[scheduler] pid=%d, state=%d\n", p->pid, p->state);
   //     if(p->state == RUNNABLE) {
   //       // Switch to chosen process.  It is the process's job
   //       // to release its lock and then reacquire it
@@ -587,7 +714,6 @@ forkret(void)
     first = 0;
     // ensure other cores see first=0.
     __sync_synchronize();
-
     // We can invoke kexec() now that file system is initialized.
     // Put the return value (argc) of kexec into a0.
     p->trapframe->a0 = kexec("/init", (char *[]){ "/init", 0 });

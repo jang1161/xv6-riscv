@@ -31,3 +31,7 @@ uint64 sys_getppid(void) {
 
     return ppid;
 }
+
+uint64 sys_getlev(void) {
+    return sched_type == MLFQ ? (uint64)myproc()->level : 99;
+}
