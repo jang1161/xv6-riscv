@@ -61,4 +61,116 @@ void schedule_fcfs(struct cpu *c, struct proc proc[], int nextpid) {
       }
 }
 
-// void schedule_mlfq(struct cpu *c, struct pqueue mlfq[], )
+void schedule_mlfq(struct cpu *c, struct pqueue mlfq[]) {
+  struct proc *p;
+  int found = 0;
+  int sz;
+
+  // priority boosting
+  if(ticks % 50  == 0) {
+    acquire(&mlfq[0].lock);
+    for(int i = 1; i < MLFQLV; i++) {
+      acquire(&mlfq[i].lock);
+      sz = mlfq[i].size;
+      for(int j = 0; j < sz; j++) {
+        q_add(&mlfq[0], q_poll(&mlfq[i]));
+      }
+      release(&mlfq[i].lock);
+    }
+
+    sz = mlfq[0].size;
+    for(int i = 0; i < sz; i++) {
+      struct proc * p = mlfq[0].elements[i];
+      acquire(&p->lock);
+      p->level = 0;
+      p->remain_time = 1;
+      release(&p->lock);
+    }
+
+    release(&mlfq[0].lock);
+  }
+
+  struct proc *selected = 0;
+
+  for(int lv = 0; lv < MLFQLV; lv++) {
+    acquire(&mlfq[lv].lock);
+
+    if(lv < 2) {
+      sz = mlfq[lv].size;
+      for(int i = 0; i < sz; i++) {
+        p = q_poll(&mlfq[lv]);
+        acquire(&p->lock);
+
+        if(p->state == RUNNABLE) {
+          found = 1;
+          selected = p;
+          break; // keep lock
+        } else {
+          q_add(&mlfq[lv], p);
+          release(&p->lock);
+        }
+      }
+    } 
+
+    else { // lv2
+      sz = mlfq[lv].size;
+      for(int i = 0; i < sz; i++) {
+        p = q_poll(&mlfq[lv]);
+        acquire(&p->lock);
+        
+        if(p->state == RUNNABLE) {
+          if(!found) {
+            found = 1;
+            selected = p; // keep lock
+          } 
+          else if(p->priority > selected->priority) {
+            q_add(&mlfq[lv], selected); // change selected
+            release(&selected->lock);
+            selected = p;
+          } else {
+            q_add(&mlfq[lv], p);
+            release(&p->lock);
+          }
+        } 
+        else { // not runnable
+          q_add(&mlfq[lv], p);
+          release(&p->lock);
+        }
+      }
+    }
+
+    release(&mlfq[lv].lock);
+    if(found) break; // for found in lv0,1
+  }
+
+  if(found == 0) {
+    asm volatile("wfi");
+  } else {
+    // has lock
+    selected->state = RUNNING;
+    c->proc = selected;
+    swtch(&c->context, &selected->context);
+    c->proc = 0;
+    release(&selected->lock);
+
+    // check state after come back
+    acquire(&selected->lock);
+    if(selected->state == ZOMBIE) {
+      // terminated: do nothing
+    } else {
+      if(--selected->remain_time == 0) {
+        if(selected->level < 2) {
+          selected->level++;
+        } else { // already in lv2
+          selected->priority = selected->priority > 0 ? selected->priority - 1 : 0;
+        }
+        selected->remain_time = 2 * selected->level + 1;
+      }
+
+      acquire(&mlfq[selected->level].lock);
+      q_add(&mlfq[selected->level], selected);
+      release(&mlfq[selected->level].lock);
+    }
+    release(&selected->lock);
+  }
+}

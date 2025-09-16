@@ -113,6 +113,6 @@ struct proc {
 
 extern struct proc proc[NPROC];
 
-enum schedtype { FCFS, MLFQ };
+enum schedtype { FCFS, MLFQ, RR };
 extern enum schedtype sched_type;
 extern int crtpid, called_yield;

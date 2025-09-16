@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-#include "proc_queue.h"
+#include "scheduler.h"
 
 struct cpu cpus[NCPU];
 
@@ -22,7 +22,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-enum schedtype sched_type = FCFS; // defaulf: FCFS
+enum schedtype sched_type = RR; // defaulf: FCFS
 int crtpid = 0;
 int called_yield = 0;
 
@@ -442,177 +442,42 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
+    // The most recent process to run may have had interrupts
+    // turned off; enable them to avoid a deadlock if all
+    // processes are waiting. Then turn them back off
+    // to avoid a possible race between an interrupt
     intr_on();
     intr_off();
 
     int found = 0;
-    extern uint ticks; // for mlfq priority boosting
+    // extern uint ticks; // for mlfq priority boosting
 
     if((int)sched_type == (int)FCFS) {
-      int minpid = nextpid;
-      struct proc *selected = 0, *prev = 0;
-
+      schedule_fcfs(c, proc, nextpid);
+    } else if((int)sched_type == (int)MLFQ) {
+      schedule_mlfq(c, mlfq);
+    } 
+    else { // xv6 default RR
       for(p = proc; p < &proc[NPROC]; p++) {
         acquire(&p->lock);
         if(p->state == RUNNABLE) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
           found = 1;
-          if(p->pid == crtpid) { // process has been excuted
-            if(called_yield) { // called yield, so search other processes (and keep lock)
-              prev = p;
-            } else { // resume
-              selected = p;
-              break;
-            }
-          }
-          else if(p->pid < minpid) { // higher priority
-            if(selected != 0) // release previous selected's lock
-              release(&selected->lock);
-            selected = p;
-            minpid = p->pid;
-          }
-          else { 
-            release(&p->lock); // lower priority, release lock
-          }
-        } else { // not runnable
-          release(&p->lock);
         }
+        release(&p->lock);
       }
-
       if(found == 0) {
+        // nothing to run; stop running on this core until an interrupt.
         asm volatile("wfi");
-      } else {
-        if(selected == 0) // only one process is RUNNABLE, which called yield 
-          selected = prev;
-        
-        // has lock
-        selected->state = RUNNING;
-        c->proc = selected;
-        swtch(&c->context, &selected->context);
-        c->proc = 0;
-        release(&selected->lock);
-
-        crtpid = selected->pid;
-        called_yield = 0;
-
-        if(prev && selected != prev) // prev not used
-          release(&prev->lock);
-      }
-    }
-
-    else if((int)sched_type == (int)MLFQ) {
-      int sz;
-
-      // priority boosting
-      if(ticks % 50  == 0) {
-        acquire(&mlfq[0].lock);
-        for(int i = 1; i < MLFQLV; i++) {
-          acquire(&mlfq[i].lock);
-          sz = mlfq[i].size;
-          for(int j = 0; j < sz; j++) {
-            q_add(&mlfq[0], q_poll(&mlfq[i]));
-          }
-          release(&mlfq[i].lock);
-        }
-
-        sz = mlfq[0].size;
-        for(int i = 0; i < sz; i++) {
-          struct proc * p = mlfq[0].elements[i];
-          acquire(&p->lock);
-          p->level = 0;
-          p->remain_time = 1;
-          release(&p->lock);
-        }
-
-        release(&mlfq[0].lock);
-      }
-
-      struct proc *selected = 0;
-
-      // search from lv0
-      for(int lv = 0; lv < MLFQLV; lv++) {
-        acquire(&mlfq[lv].lock);
-
-        if(lv < 2) {
-          sz = mlfq[lv].size;
-          for(int i = 0; i < sz; i++) {
-            p = q_poll(&mlfq[lv]);
-            // printf("[scheduler] in lv %d polled pid=%d, state=%d\n", lv, p->pid, p->state);
-            acquire(&p->lock);
-
-            if(p->state == RUNNABLE) {
-              found = 1;
-              selected = p;
-              break; // keep lock
-            } else {
-              q_add(&mlfq[lv], p);
-              release(&p->lock);
-            }
-          }
-        } 
-
-        else { // lv2
-          sz = mlfq[lv].size;
-          for(int i = 0; i < sz; i++) {
-            p = q_poll(&mlfq[lv]);
-            // printf("[scheduler] in lv %d polled pid=%d, state=%d\n", lv, p->pid, p->state);
-            acquire(&p->lock);
-            
-            if(p->state == RUNNABLE) {
-              if(!found) {
-                found = 1;
-                selected = p; // keep lock
-              } 
-              else if(p->priority > selected->priority) {
-                q_add(&mlfq[lv], selected); // change selected
-                release(&selected->lock);
-                selected = p;
-              } else {
-                q_add(&mlfq[lv], p);
-                release(&p->lock);
-              }
-            } 
-            else { // not runnable
-              q_add(&mlfq[lv], p);
-              release(&p->lock);
-            }
-          }
-        }
-
-        release(&mlfq[lv].lock);
-        if(found) break; // for found in lv0,1
-      }
-
-      if(found == 0) {
-        // printf("not found");
-        asm volatile("wfi");
-      } else {
-        // has lock
-        // printf("seledted: %d\n", selected->pid);
-        selected->state = RUNNING;
-        c->proc = selected;
-        swtch(&c->context, &selected->context);
-        c->proc = 0;
-        release(&selected->lock);
-
-        // check state after come back
-        acquire(&selected->lock);
-        if(selected->state == ZOMBIE) {
-          // terminated: do nothing
-        } else {
-          if(--selected->remain_time == 0) {
-            if(selected->level < 2) {
-              selected->level++;
-            } else { // already in lv2
-              selected->priority = selected->priority > 0 ? selected->priority - 1 : 0;
-            }
-            selected->remain_time = 2 * selected->level + 1;
-          }
-
-          acquire(&mlfq[selected->level].lock);
-          q_add(&mlfq[selected->level], selected);
-          release(&mlfq[selected->level].lock);
-        }
-        release(&selected->lock);
       }
     }
   }
