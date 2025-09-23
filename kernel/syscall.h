@@ -26,3 +26,5 @@
 #define SYS_setpriority 25
 #define SYS_mlfqmode    26
 #define SYS_fcfsmode    27
+#define SYS_clone       28
+#define SYS_join        29

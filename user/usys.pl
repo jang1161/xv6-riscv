@@ -48,3 +48,5 @@ entry("getlev");
 entry("setpriority");
 entry("mlfqmode");
 entry("fcfsmode");
+entry("clone");
+entry("join");

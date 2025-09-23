@@ -109,6 +109,14 @@ struct proc {
   int level;
   int remain_time;
   int priority;
+
+  // for thread
+  int isMain;
+  struct proc *main;
+  int tid;
+  int nexttid;
+  uint64 tf_va;
+  void *ustack;
 };
 
 extern struct proc proc[NPROC];
@@ -116,3 +124,7 @@ extern struct proc proc[NPROC];
 enum schedtype { FCFS, MLFQ, RR };
 extern enum schedtype sched_type;
 extern int crtpid, called_yield;
+
+extern struct proc* allocproc_thread(struct proc *parent);
+extern int allocpid(void);
+extern void freeproc(struct proc *p);

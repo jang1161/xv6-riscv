@@ -1,3 +1,4 @@
+#include "kernel/types.h"
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
@@ -30,6 +31,8 @@ int getlev(void);
 int setpriority(int pid, int priority);
 int mlfqmode(void);
 int fcfsmode(void);
+int clone(void(*)(void*, void*), void*, void*, void*); 
+int join(void**);
 
 // ulib.c
 int stat(const char*, struct stat*);

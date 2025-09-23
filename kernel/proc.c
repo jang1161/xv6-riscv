@@ -18,11 +18,11 @@ int nextpid = 1;
 struct spinlock pid_lock;
 
 extern void forkret(void);
-static void freeproc(struct proc *p);
+// static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-enum schedtype sched_type = RR; // defaulf: FCFS
+enum schedtype sched_type = RR;
 int crtpid = 0;
 int called_yield = 0;
 
@@ -132,6 +132,12 @@ allocproc(void)
   return 0;
 
 found:
+  p->isMain = 1;
+  p->main = p; // self
+  p->tid = 0;
+  p->nexttid = 1;
+  p->tf_va = TRAPFRAME;
+
   p->pid = allocpid();
   p->state = USED;
 
@@ -168,15 +174,22 @@ found:
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
-static void
+void
 freeproc(struct proc *p)
 {
-  if(p->trapframe)
-    kfree((void*)p->trapframe);
+  if(p->trapframe) {
+    if(!p->isMain) {
+      uvmunmap(p->pagetable, (uint64)p->tf_va, 1, 1);
+    } else {
+      kfree((void*)p->trapframe);
+    }
+  }
   p->trapframe = 0;
-  if(p->pagetable)
+
+  if(p->pagetable && p->isMain) // free only if main thread
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
+
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -264,6 +277,13 @@ growproc(int n)
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
+
+  for(struct proc *o = proc; o < &proc[NPROC]; o++) {
+    if(o->main == p->main) {
+      o->sz = sz;
+    }
+  }
+
   return 0;
 }
 
@@ -340,9 +360,17 @@ void
 kexit(int status)
 {
   struct proc *p = myproc();
-
+  
   if(p == initproc)
     panic("init exiting");
+  
+  // kill other threads too
+  if(p->isMain) {
+    for(struct proc *o = proc; o < &proc[NPROC]; o++) {
+      if(o->main == p->main && o != p)
+        kkill(o->pid);
+    }
+  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
@@ -466,6 +494,7 @@ scheduler(void)
           // before jumping back to us.
           p->state = RUNNING;
           c->proc = p;
+
           swtch(&c->context, &p->context);
 
           // Process is done running for now.
@@ -655,6 +684,19 @@ kkill(int pid)
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
+
+      if(p->isMain) { // kill other threads too
+        for(struct proc *k = proc; k < &proc[NPROC]; k++) {
+          if(!k->isMain && k->main == p) {
+            acquire(&k->lock);
+            k->killed = 1;
+            if(k->state == SLEEPING)
+              k->state = RUNNABLE;
+            release(&k->lock);  
+          }
+        }
+      }
+
       p->killed = 1;
       if(p->state == SLEEPING){
         // Wake process from sleep().
