@@ -37,21 +37,26 @@ kexec(char *path, char **argv)
   struct proc *p = myproc();
   
   // clean up all threads except p(new main thread)
-  if(cleanUpAllThreads(p) < 0)
+  if(cleanUpAllThreads(p) < 0) {
+    printf("cleanUpAllThreads err\n");
     return -1;
+  }
 
   begin_op();
 
   // Open the executable file.
   if((ip = namei(path)) == 0){
+    printf("namei err\n");
     end_op();
     return -1;
   }
   ilock(ip);
 
   // Read the ELF header.
-  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
+  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf)) {
+    printf("readi err\n");
     goto bad;
+  }
 
   // Is this really an ELF file?
   if(elf.magic != ELF_MAGIC)

@@ -158,7 +158,8 @@ thread_exec(void *arg1, void *arg2)
         char *pname = "/thread_fcn";
         char *args[3] = {pname, "0", 0};
         printf("Executing...\n");
-        exec(pname, args);
+        int ret = exec(pname, args);
+        printf("ret: %d\n", ret);
     }
     else {
         pause(20);

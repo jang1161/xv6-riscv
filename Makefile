@@ -151,6 +151,7 @@ UPROGS=\
 	$U/_test_ppid\
 	$U/_test\
 	$U/_thread_test\
+	$U/_thread_fcn\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
