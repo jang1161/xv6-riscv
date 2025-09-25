@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 #include "elf.h"
+#include "prac_function.h"
 
 static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
 
@@ -34,6 +35,10 @@ kexec(char *path, char **argv)
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
+  
+  // clean up all threads except p(new main thread)
+  if(cleanUpAllThreads(p) < 0)
+    return -1;
 
   begin_op();
 

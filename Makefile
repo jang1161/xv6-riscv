@@ -31,7 +31,8 @@ OBJS = \
   $K/virtio_disk.o \
   $K/prac_syscall.o \
   $K/proc_queue.o \
-  $K/scheduler.o
+  $K/scheduler.o \
+  $K/prac_function.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin

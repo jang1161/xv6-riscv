@@ -185,8 +185,10 @@ freeproc(struct proc *p)
     }
   }
   p->trapframe = 0;
+  p->tf_va = 0;
 
-  if(p->pagetable && p->isMain) // free only if main thread
+  // free only if main thread
+  if(p->pagetable && p->isMain) 
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
 
@@ -363,14 +365,6 @@ kexit(int status)
   
   if(p == initproc)
     panic("init exiting");
-  
-  // kill other threads too
-  if(p->isMain) {
-    for(struct proc *o = proc; o < &proc[NPROC]; o++) {
-      if(o->main == p->main && o != p)
-        kkill(o->pid);
-    }
-  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
@@ -482,7 +476,8 @@ scheduler(void)
 
     if((int)sched_type == (int)FCFS) {
       schedule_fcfs(c, proc, nextpid);
-    } else if((int)sched_type == (int)MLFQ) {
+    } 
+    else if((int)sched_type == (int)MLFQ) {
       schedule_mlfq(c, mlfq);
     } 
     else { // xv6 default RR
@@ -510,43 +505,6 @@ scheduler(void)
       }
     }
   }
-
-
-  // xv6 original
-  // for(;;){
-  //   // The most recent process to run may have had interrupts
-  //   // turned off; enable them to avoid a deadlock if all
-  //   // processes are waiting. Then turn them back off
-  //   // to avoid a possible race between an interrupt
-  //   // and wfi.
-  //   intr_on();
-  //   intr_off();
-
-  //   int found = 0;
-  //   for(p = proc; p < &proc[NPROC]; p++) {
-  //     acquire(&p->lock);
-  //     // if(p->pid)
-  //     //   printf("[scheduler] pid=%d, state=%d\n", p->pid, p->state);
-  //     if(p->state == RUNNABLE) {
-  //       // Switch to chosen process.  It is the process's job
-  //       // to release its lock and then reacquire it
-  //       // before jumping back to us.
-  //       p->state = RUNNING;
-  //       c->proc = p;
-  //       swtch(&c->context, &p->context);
-
-  //       // Process is done running for now.
-  //       // It should have changed its p->state before coming back.
-  //       c->proc = 0;
-  //       found = 1;
-  //     }
-  //     release(&p->lock);
-  //   }
-  //   if(found == 0) {
-  //     // nothing to run; stop running on this core until an interrupt.
-  //     asm volatile("wfi");
-  //   }
-  // }
 }
 
 // Switch to scheduler.  Must hold only p->lock
@@ -684,23 +642,21 @@ kkill(int pid)
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
-
-      if(p->isMain) { // kill other threads too
-        for(struct proc *k = proc; k < &proc[NPROC]; k++) {
-          if(!k->isMain && k->main == p) {
-            acquire(&k->lock);
-            k->killed = 1;
-            if(k->state == SLEEPING)
-              k->state = RUNNABLE;
-            release(&k->lock);  
-          }
-        }
-      }
-
       p->killed = 1;
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+      }
+
+      for(struct proc *o = proc; o < &proc[NPROC]; o++) {
+        if(o == p) continue;
+        acquire(&o->lock);
+        if(o->main == p->main) {
+          o->killed = 1;
+          if(o->state == SLEEPING)
+            o->state = RUNNABLE;
+        }
+        release(&o->lock);
       }
       release(&p->lock);
       return 0;
