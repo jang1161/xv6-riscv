@@ -173,106 +173,106 @@ main(int argc, char *argv[])
     int i;
     int pid;
 
-    // printf("\n[TEST#1]\n");
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     threads[i] = thread_create(thread_basic, (void *)(uint64)i, 0);
-    //     printf("thread created... pid: %d\n", threads[i]);
-    // }
+    printf("\n[TEST#1]\n");
+    for (i = 0; i < NUM_THREAD; i++) {
+        threads[i] = thread_create(thread_basic, (void *)(uint64)i, 0);
+        printf("thread created... pid: %d\n", threads[i]);
+    }
 
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     int ret = thread_join();
-    //     if (ret < 0) {
-    //         printf("Thread %d join failed\n", i);
-    //         exit(1);
-    //     }
-    // }
+    for (i = 0; i < NUM_THREAD; i++) {
+        int ret = thread_join();
+        if (ret < 0) {
+            printf("Thread %d join failed\n", i);
+            exit(1);
+        }
+    }
 
-    // if (status != 1) {
-    //     printf("TEST#1 Failed\n");
-    //     exit(1);
-    // }
-    // printf("TEST#1 Passed\n");
+    if (status != 1) {
+        printf("TEST#1 Failed\n");
+        exit(1);
+    }
+    printf("TEST#1 Passed\n");
     
-    // printf("\n[TEST#2]\n");
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     threads[i] = thread_create(thread_inc, (void *)(uint64)i, (void *)(uint64)(i * 1000));
-    // }
+    printf("\n[TEST#2]\n");
+    for (i = 0; i < NUM_THREAD; i++) {
+        threads[i] = thread_create(thread_inc, (void *)(uint64)i, (void *)(uint64)(i * 1000));
+    }
 
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     int ret = thread_join();
-    //     if (ret < 0) {
-    //         printf("Thread %d join failed\n", i);
-    //         exit(1);
-    //     }
-    // }
+    for (i = 0; i < NUM_THREAD; i++) {
+        int ret = thread_join();
+        if (ret < 0) {
+            printf("Thread %d join failed\n", i);
+            exit(1);
+        }
+    }
 
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     if (expected[i] != i * 1000) {
-    //         printf("Thread %d expected %d, but got %d\n", i, i * 1000, expected[i]);
-    //         exit(1);
-    //     }
-    // }
-    // printf("TEST#2 Passed\n");
+    for (i = 0; i < NUM_THREAD; i++) {
+        if (expected[i] != i * 1000) {
+            printf("Thread %d expected %d, but got %d\n", i, i * 1000, expected[i]);
+            exit(1);
+        }
+    }
+    printf("TEST#2 Passed\n");
 
-    // printf("\n[TEST#3]\n");
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     threads[i] = thread_create(thread_fork, (void *)(uint64)i, 0);
-    // }
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     int ret = thread_join();
-    //     if (ret < 0) {
-    //         printf("Thread %d join failed\n", i);
-    //         exit(1);
-    //     }
-    // }
-    // if (status != 2) {
-    //     if (status == 3) {
-    //         printf("TEST#3 Failed: Child process referenced parent's memory\n");
-    //     }
-    //     else {
-    //         printf("TEST#3 Failed: Unexpected status %d\n", status);
-    //     }
-    //     exit(1);
-    // }
-    // printf("TEST#3 Passed\n");
+    printf("\n[TEST#3]\n");
+    for (i = 0; i < NUM_THREAD; i++) {
+        threads[i] = thread_create(thread_fork, (void *)(uint64)i, 0);
+    }
+    for (i = 0; i < NUM_THREAD; i++) {
+        int ret = thread_join();
+        if (ret < 0) {
+            printf("Thread %d join failed\n", i);
+            exit(1);
+        }
+    }
+    if (status != 2) {
+        if (status == 3) {
+            printf("TEST#3 Failed: Child process referenced parent's memory\n");
+        }
+        else {
+            printf("TEST#3 Failed: Unexpected status %d\n", status);
+        }
+        exit(1);
+    }
+    printf("TEST#3 Passed\n");
 
-    // printf("\n[TEST#4]\n");
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     threads[i] = thread_create(thread_sbrk, (void *)(uint64)i, (void *)(uint64)0);
-    // }
-    // for (i = 0; i < NUM_THREAD; i++) {
-    //     int ret = thread_join();
-    //     if (ret < 0) {
-    //         printf("Thread %d join failed\n", i);
-    //         exit(1);
-    //     }
-    // }
+    printf("\n[TEST#4]\n");
+    for (i = 0; i < NUM_THREAD; i++) {
+        threads[i] = thread_create(thread_sbrk, (void *)(uint64)i, (void *)(uint64)0);
+    }
+    for (i = 0; i < NUM_THREAD; i++) {
+        int ret = thread_join();
+        if (ret < 0) {
+            printf("Thread %d join failed\n", i);
+            exit(1);
+        }
+    }
 
-    // printf("TEST#4 Passed\n");
+    printf("TEST#4 Passed\n");
     
-    // printf("\n[TEST#5]\n");
+    printf("\n[TEST#5]\n");
 
-    // pid = fork();
-    // if (pid < 0) {
-    //     printf("Fork error\n");
-    //     exit(1);
-    // } else if (pid == 0) {
-    //     for (i = 0; i < NUM_THREAD; i++) {
-    //         threads[i] = thread_create(thread_kill, (void *)(uint64)i, (void *)(uint64)getpid());
-    //     }
-    //     for (i = 0; i < NUM_THREAD; i++) {
-    //         int ret = thread_join();
-    //         if (ret < 0) {
-    //             printf("Thread %d join failed\n", i);
-    //             exit(1);
-    //         }
-    //     }
-    // } else {
-    //     pause(30);
-    //     wait(0);
-    // }
+    pid = fork();
+    if (pid < 0) {
+        printf("Fork error\n");
+        exit(1);
+    } else if (pid == 0) {
+        for (i = 0; i < NUM_THREAD; i++) {
+            threads[i] = thread_create(thread_kill, (void *)(uint64)i, (void *)(uint64)getpid());
+        }
+        for (i = 0; i < NUM_THREAD; i++) {
+            int ret = thread_join();
+            if (ret < 0) {
+                printf("Thread %d join failed\n", i);
+                exit(1);
+            }
+        }
+    } else {
+        pause(30);
+        wait(0);
+    }
 
-    // printf("TEST#5 Passed\n");
+    printf("TEST#5 Passed\n");
 
     printf("\n[TEST#6]\n");
     pid = fork();

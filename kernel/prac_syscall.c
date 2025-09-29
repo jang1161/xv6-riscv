@@ -197,8 +197,7 @@ found:
 	p->pid = allocpid();
 	p->state = USED;
 
-	uint64 main_tf_base = TRAPFRAME - PGSIZE;
-	uint64 new_tf_base = main_tf_base - p->tid * PGSIZE;
+	uint64 new_tf_base = TRAPFRAME - p->tid * PGSIZE;
 	void *pa;
 	if((pa = kalloc()) == 0) {
 		freeproc(p);
