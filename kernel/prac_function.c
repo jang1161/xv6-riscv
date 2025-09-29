@@ -13,11 +13,18 @@ and p's trapframe should be mapped at TRAPFRAME
 similar with freeproc()
 */
 int cleanUpAllThreads(struct proc *p) {
+	struct proc *parent = 0;
+	if(p->tid == 0)
+		parent = p->parent;
+
 	for(struct proc *o = proc; o < &proc[NPROC]; o++) {
 		if(o == p) continue;
 
 		acquire(&o->lock);
 		if(o->main == p->main) {
+			if(o->tid == 0)
+				parent = o->parent;
+
 			uvmunmap(o->pagetable, (uint64)o->tf_va, 1, 1);
 
 			o->trapframe = 0;
@@ -37,7 +44,7 @@ int cleanUpAllThreads(struct proc *p) {
 
 	acquire(&p->lock);
 	uvmunmap(p->pagetable, (uint64)p->tf_va, 1, 0);
-	
+
 	if(mappages(p->pagetable, TRAPFRAME, PGSIZE,
               (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
     uvmunmap(p->pagetable, TRAMPOLINE, 1, 0);
@@ -50,6 +57,7 @@ int cleanUpAllThreads(struct proc *p) {
 	p->nexttid = 1;
 	p->main = p;
 	p->tf_va = TRAPFRAME;
+	p->parent = parent;
 
 	release(&p->lock);
 	return 0;

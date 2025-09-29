@@ -46,17 +46,14 @@ kexec(char *path, char **argv)
 
   // Open the executable file.
   if((ip = namei(path)) == 0){
-    printf("namei err\n");
     end_op();
     return -1;
   }
   ilock(ip);
 
   // Read the ELF header.
-  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf)) {
-    printf("readi err\n");
+  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
-  }
 
   // Is this really an ELF file?
   if(elf.magic != ELF_MAGIC)

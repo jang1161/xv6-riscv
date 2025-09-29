@@ -6,6 +6,8 @@
         "memlayout.h": "c",
         "defs.h": "c",
         "proc.h": "c",
-        "cstring": "c"
+        "cstring": "c",
+        "spinlock.h": "c",
+        "riscv.h": "c"
     }
 }

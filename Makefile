@@ -98,7 +98,7 @@ $K/%.o: $K/%.S
 tags: $(OBJS)
 	etags kernel/*.S kernel/*.c
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/thread.o 
+ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/thread.o
 
 _%: %.o $(ULIB) $U/user.ld
 	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $< $(ULIB)

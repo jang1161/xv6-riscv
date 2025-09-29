@@ -158,8 +158,7 @@ thread_exec(void *arg1, void *arg2)
         char *pname = "/thread_fcn";
         char *args[3] = {pname, "0", 0};
         printf("Executing...\n");
-        int ret = exec(pname, args);
-        printf("ret: %d\n", ret);
+        exec(pname, args);
     }
     else {
         pause(20);
@@ -287,6 +286,7 @@ main(int argc, char *argv[])
         }
         for (i = 0; i < NUM_THREAD; i++) {
             int ret = thread_join();
+            printf("thread_join returned: %d\n", ret);
             if (ret < 0) {
                 printf("Thread %d join failed\n", i);
                 exit(1);
