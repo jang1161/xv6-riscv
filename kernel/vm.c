@@ -355,47 +355,33 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
       return -1;
-  
+        
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0) {
       if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
         return -1;
       }
     }
-
+    
     pte = walk(pagetable, va0, 0);
-    // forbid copyout over read-only user text pages.
     if((*pte & PTE_W) == 0) {
       if(!(*pte & PTE_COW))
         return -1;
-
-      void *new_pa;
-      if((new_pa = kalloc()) == 0)
-        return -1;
-      memmove(new_pa, (char*)pa0, PGSIZE);
       
-      uint flags = PTE_FLAGS(*pte);
-      *pte = PA2PTE(new_pa);
-      *pte |= flags;
-      *pte &= ~PTE_COW;
-      *pte |= PTE_W;
-
-      kfree((void*)pa0);
-
-      n = PGSIZE - (dstva - va0);
-      if(n > len)
-        n = len;
-
-      memmove((void *)(new_pa + (dstva - va0)), src, n);
+      if(cow_handler(myproc(), va0, pte, 0) != 0)
+        return -1;
+      
+      // get new pa after COW handling
+      pa0 = walkaddr(pagetable, va0);
+      if(pa0 == 0)
+        return -1;
     }
-    else {
-      n = PGSIZE - (dstva - va0);
-      if(n > len)
-        n = len;
-        
-      memmove((void *)(pa0 + (dstva - va0)), src, n);
-    }
-
+    
+    n = PGSIZE - (dstva - va0);
+    if(n > len)
+      n = len;
+    memmove((void *)(pa0 + (dstva - va0)), src, n);
+    
     len -= n;
     src += n;
     dstva = va0 + PGSIZE;

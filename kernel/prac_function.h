@@ -1,4 +1,4 @@
 #include "proc.h"
 
 int cleanUpAllThreads(struct proc *p);
-int cow_handler(struct proc *p, uint64 va, pte_t *pte);
+int cow_handler(struct proc *p, uint64 va, pte_t *pte, int reset_epc);

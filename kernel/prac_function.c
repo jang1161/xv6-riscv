@@ -63,7 +63,7 @@ int cleanUpAllThreads(struct proc *p) {
 	return 0;
 }
 
-int cow_handler(struct proc *p, uint64 va, pte_t *pte) {
+int cow_handler(struct proc *p, uint64 va, pte_t *pte, int reset_epc) {
 	uint64 pa = PTE2PA(*pte);
 	uint flags;
 	char *mem;
@@ -86,13 +86,14 @@ int cow_handler(struct proc *p, uint64 va, pte_t *pte) {
 			return -1;
 		}
 	} 
-	else { // there is only one referencing this pte
+	else { // only one is referencing this pte
 		*pte &= ~PTE_COW;
 		*pte |= PTE_W;
 		release(&reflock);
 	}
 	
-	p->trapframe->epc = r_sepc();
+	if(reset_epc)
+		p->trapframe->epc = r_sepc();
 
 	return 0;
 }

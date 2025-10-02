@@ -83,7 +83,7 @@ usertrap(void)
   } 
   else if(r_scause() == 15) {
     if((*pte & PTE_COW) && !(*pte & PTE_W)) { // write page fault by COW
-      if(cow_handler(p, va, pte) != 0)
+      if(cow_handler(p, va, pte, 1) != 0)
         setkilled(p);
     } else { // write page fault by others
       if(vmfault(p->pagetable, r_stval(), 0) != 0)
