@@ -1,3 +1,4 @@
+#include "memlayout.h"
 struct buf;
 struct context;
 struct file;
@@ -59,6 +60,8 @@ void            ireclaim(int);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+extern struct spinlock reflock;
+extern int ref_count[PHYSTOP / PGSIZE];
 
 // log.c
 void            initlog(int, struct superblock*);

@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "fs.h"
+#include "prac_function.h"
 
 /*
  * the kernel's page table.
@@ -293,26 +294,31 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 // physical memory.
 // returns 0 on success, -1 on failure.
 // frees any allocated pages on failure.
+// -> modified to share pages instead of copying for COW
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       continue;   // page table entry hasn't been allocated
     if((*pte & PTE_V) == 0)
       continue;   // physical page hasn't been allocated
+      
+    *pte |= PTE_COW;
+    *pte &= ~PTE_W;
+
     pa = PTE2PA(*pte);
+    acquire(&reflock);
+    ref_count[pa / PGSIZE]++;
+    release(&reflock);
+
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+        
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
       goto err;
     }
   }
@@ -344,7 +350,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
   pte_t *pte;
-
+  
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
@@ -359,13 +365,36 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
     pte = walk(pagetable, va0, 0);
     // forbid copyout over read-only user text pages.
-    if((*pte & PTE_W) == 0)
-      return -1;
+    if((*pte & PTE_W) == 0) {
+      if(!(*pte & PTE_COW))
+        return -1;
+
+      void *new_pa;
+      if((new_pa = kalloc()) == 0)
+        return -1;
+      memmove(new_pa, (char*)pa0, PGSIZE);
       
-    n = PGSIZE - (dstva - va0);
-    if(n > len)
-      n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
+      uint flags = PTE_FLAGS(*pte);
+      *pte = PA2PTE(new_pa);
+      *pte |= flags;
+      *pte &= ~PTE_COW;
+      *pte |= PTE_W;
+
+      kfree((void*)pa0);
+
+      n = PGSIZE - (dstva - va0);
+      if(n > len)
+        n = len;
+
+      memmove((void *)(new_pa + (dstva - va0)), src, n);
+    }
+    else {
+      n = PGSIZE - (dstva - va0);
+      if(n > len)
+        n = len;
+        
+      memmove((void *)(pa0 + (dstva - va0)), src, n);
+    }
 
     len -= n;
     src += n;

@@ -23,10 +23,15 @@ struct {
   struct run *freelist;
 } kmem;
 
+// reference counter of each page
+int ref_count[PHYSTOP / PGSIZE];
+struct spinlock reflock;
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&reflock, "reflock");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -51,15 +56,25 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  // free page if there is no process referencing it
+  acquire(&reflock);
 
-  r = (struct run*)pa;
+  int pgnum = (uint64)pa / PGSIZE; 
+  if(ref_count[pgnum] > 0)
+    ref_count[pgnum]--;
+  if(ref_count[pgnum] == 0) {
+    // Fill with junk to catch dangling refs.
+    memset(pa, 1, PGSIZE);
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+    r = (struct run*)pa;
+
+    acquire(&kmem.lock);
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+    release(&kmem.lock);
+  }
+
+  release(&reflock);
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -76,7 +91,13 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
+
+    // initialize the ref counter to 1
+    acquire(&reflock);
+    ref_count[(uint64)r / PGSIZE] = 1;
+    release(&reflock);
+  }
   return (void*)r;
 }

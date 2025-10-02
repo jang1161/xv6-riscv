@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "prac_function.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -51,6 +52,12 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
+  // for COW driven fault check
+  uint64 va = PGROUNDDOWN(r_stval());
+  pte_t *pte = walk(p->pagetable, va, 0);
+  // printf("usertrap: scause=%lx stval=%lx va=%lx pte=%p\n", r_scause(), r_stval(), va, pte);
+
+
   if(r_scause() == 8){
     // system call
 
@@ -66,12 +73,24 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
+  } 
+  else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
-            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
-  } else {
+  } 
+  else if(r_scause() == 13) { // read page fault
+    if(vmfault(p->pagetable, r_stval(), 1) != 0)
+      setkilled(p);
+  } 
+  else if(r_scause() == 15) {
+    if((*pte & PTE_COW) && !(*pte & PTE_W)) { // write page fault by COW
+      if(cow_handler(p, va, pte) != 0)
+        setkilled(p);
+    } else { // write page fault by others
+      if(vmfault(p->pagetable, r_stval(), 0) != 0)
+        setkilled(p);
+    }
+  }
+  else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);

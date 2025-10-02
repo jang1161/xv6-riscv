@@ -62,3 +62,37 @@ int cleanUpAllThreads(struct proc *p) {
 	release(&p->lock);
 	return 0;
 }
+
+int cow_handler(struct proc *p, uint64 va, pte_t *pte) {
+	uint64 pa = PTE2PA(*pte);
+	uint flags;
+	char *mem;
+
+	acquire(&reflock);
+	if(ref_count[pa / PGSIZE] > 1) {
+		ref_count[pa / PGSIZE]--;
+		release(&reflock);
+
+		if((mem = kalloc()) == 0) {
+			return -1;
+		}
+		memmove(mem, (char*)pa, PGSIZE);
+		
+		flags = (PTE_FLAGS(*pte) | PTE_W) & ~PTE_COW;
+	
+		uvmunmap(p->pagetable, va, 1, 0);
+		if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags) != 0) {
+			kfree(mem);
+			return -1;
+		}
+	} 
+	else { // there is only one referencing this pte
+		*pte &= ~PTE_COW;
+		*pte |= PTE_W;
+		release(&reflock);
+	}
+	
+	p->trapframe->epc = r_sepc();
+
+	return 0;
+}
