@@ -25,6 +25,8 @@ main()
     blocks++;
     if (blocks % 100 == 0)
       printf(".");
+    if(blocks % 5000 == 0)
+      printf("%d\n", blocks);
   }
 
   printf("\nwrote %d blocks\n", blocks);
@@ -41,6 +43,7 @@ main()
   }
   for(i = 0; i < blocks; i++){
     int cc = read(fd, buf, sizeof(buf));
+    
     if(cc <= 0){
       printf("bigfile: read error at block %d\n", i);
       exit(-1);
