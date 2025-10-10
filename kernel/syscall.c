@@ -109,6 +109,7 @@ extern uint64 sys_mlfqmode(void);
 extern uint64 sys_fcfsmode(void);
 extern uint64 sys_clone(void);
 extern uint64 sys_join(void);
+extern uint64 sys_symlink(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -142,6 +143,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_fcfsmode] sys_fcfsmode,
 [SYS_clone]   sys_clone,
 [SYS_join]    sys_join,
+[SYS_symlink] sys_symlink,
 };
 
 void

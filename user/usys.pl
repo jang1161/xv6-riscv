@@ -50,3 +50,4 @@ entry("mlfqmode");
 entry("fcfsmode");
 entry("clone");
 entry("join");
+entry("symlink");

@@ -28,3 +28,4 @@
 #define SYS_fcfsmode    27
 #define SYS_clone       28
 #define SYS_join        29
+#define SYS_symlink     30

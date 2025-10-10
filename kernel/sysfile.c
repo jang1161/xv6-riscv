@@ -335,6 +335,45 @@ sys_open(void)
     }
   }
 
+  // symbolic link
+  int depth = 0;
+  int sym_inodes[10];
+  memset(sym_inodes, 0, sizeof(sym_inodes));
+  char target[MAXPATH];
+
+  while(ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
+    if(depth >= 10) {
+      iunlockput(ip);
+      end_op();
+      printf("error: symlink depth more than 10!\n");
+      return -1;
+    }
+
+    for(int i = 0; i < depth; i++) {
+      if(sym_inodes[i] == ip->inum) {
+        iunlockput(ip);
+        end_op();
+        printf("error: symlink cycle detected!\n");
+        return -1;
+      }
+    }
+    sym_inodes[depth++] = ip->inum;
+
+    int len = readi(ip, 0, (uint64)target, 0, sizeof(target));
+    iunlockput(ip);
+    if(len < 0 || len > MAXPATH) {
+      end_op();
+      return -1;
+    }
+
+    ip = namei(target);
+    if(ip == 0) {
+      end_op();
+      return -1;
+    }
+    ilock(ip);
+  }
+
   if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
     iunlockput(ip);
     end_op();
@@ -502,5 +541,32 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+// symbolic link
+uint64 
+sys_symlink(void) {
+	char target[MAXPATH], path[MAXPATH];
+	struct inode *ip;
+
+	if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+		return -1;
+
+	begin_op();
+  ip = create(path, T_SYMLINK, 0, 0);
+	if(ip == 0) {
+    end_op();
+    return -1;
+  }
+
+  if(writei(ip, 0, (uint64)target, 0, strlen(target)) != strlen(target)) {
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+
+  iunlockput(ip);
+  end_op();
   return 0;
 }

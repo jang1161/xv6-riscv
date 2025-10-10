@@ -33,6 +33,7 @@ int mlfqmode(void);
 int fcfsmode(void);
 int clone(void(*)(void*, void*), void*, void*, void*); 
 int join(void**);
+int symlink(char*, char*);
 
 // ulib.c
 int stat(const char*, struct stat*);

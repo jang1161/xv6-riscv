@@ -9,7 +9,7 @@
 #include "kernel/file.h"
 #include "user/user.h"
 
-#include <fcntl.h>
+// #include <fcntl.h>
 
 #define fail(msg) do {printf("FAILURE: " msg "\n"); failed = 1; goto done;} while (0);
 static int failed = 0;
