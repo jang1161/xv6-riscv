@@ -92,8 +92,8 @@ int cow_handler(struct proc *p, uint64 va, pte_t *pte, int reset_epc) {
 		release(&reflock);
 	}
 	
-	if(reset_epc)
-		p->trapframe->epc = r_sepc();
+	// if(reset_epc)
+	// 	p->trapframe->epc = r_sepc();
 
 	return 0;
 }
