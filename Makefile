@@ -127,6 +127,11 @@ $U/_bigfile: user/project3/_bigfile.o $(ULIB) $U/user.ld
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
+$U/_symlinktest: user/project3/_symlinktest.o $(ULIB) $U/user.ld
+	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $< $(ULIB)
+	$(OBJDUMP) -S $@ > $*.asm
+	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -I. -o mkfs/mkfs mkfs/mkfs.c
 
@@ -134,6 +139,9 @@ user/project3/_cowtest.o: user/project3/cowtest.c
 	$(CC) $(CFLAGS) -fno-pic -static -o $@ -c $<
 
 user/project3/_bigfile.o: user/project3/bigfile.c
+	$(CC) $(CFLAGS) -fno-pic -static -o $@ -c $<
+
+user/project3/_symlinktest.o: user/project3/symlinktest.c
 	$(CC) $(CFLAGS) -fno-pic -static -o $@ -c $<
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
@@ -170,6 +178,7 @@ UPROGS=\
 	$U/_thread_fcn\
 	$U/_cowtest\
 	$U/_bigfile\
+	$U/_symlinktest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
